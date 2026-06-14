@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>かたち</title>
+<style>
+    /* 画面全体の設定 */
+    html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: sans-serif;
+        user-select: none;
+        -webkit-user-select: none;
+        display: flex;
+        flex-direction: column;
+        /* タッチ時のハイライトなどを無効化 */
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 上半分：黒地 */
+    #top-half {
+        flex: 1;
+        width: 100%;
+        background-color: #000000;
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding-top: 20px;
+        box-sizing: border-box;
+    }
+
+    /* 下半分：白地 */
+    #bottom-half {
+        flex: 1;
+        width: 100%;
+        background-color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        position: relative; /* 図形の基準位置 */
+    }
+
+    h1 {
+        margin: 0 0 10px 0;
+        font-size: 28px;
+        letter-spacing: 2px;
+    }
+
+    /* ごほうびイラストが並ぶエリア */
+    #reward-area {
+        display: flex;
+        gap: 15px;
+        height: 65px;
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    /* ごほうびイラスト（star-fairy.png） */
+    .reward-icon {
+        width: 60px;
+        height: 60px;
+        background-color: transparent;
+        background-image: url('star-fairy.png');
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        animation: popAndShake 0.8s ease-out forwards;
+    }
+
+    @keyframes popAndShake {
+        0% { opacity: 0; transform: translateY(40px) scale(0.5); }
+        40% { opacity: 1; transform: translateY(-10px) rotate(-15deg) scale(1.2); }
+        60% { transform: translateY(0) rotate(15deg) scale(1.1); }
+        80% { transform: translateY(0) rotate(-10deg) scale(1.05); }
+        100% { transform: translateY(0) rotate(0deg) scale(1); }
+    }
+
+    /* ターゲットとドラッグする図形の共通サイズ */
+    .target-shape, .draggable-shape {
+        width: 180px;
+        height: 180px;
+        min-width: 180px;
+        min-height: 180px;
+        flex-shrink: 0; 
+    }
+
+    /* ターゲット専用設定 */
+    .target-shape {
+        display: none;
+    }
+    .target-shape.active {
+        display: block;
+    }
+
+    /* ドラッグする図形（黒） */
+    .draggable-shape {
+        touch-action: none; /* スクロール防止 */
+        cursor: pointer;
+        position: relative;
+        z-index: 100;
+        transition: transform 0.2s ease-out;
+    }
+    .dragging {
+        transition: none;
+        z-index: 200;
+        opacity: 0.9;
+        transform: scale(1.05);
+    }
+
+    /* クリア画面 */
+    #clear-screen {
+        display: none;
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background-color: rgba(255, 255, 255, 0.95);
+        z-index: 1000;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    #clear-screen h2 {
+        font-size: 48px;
+        color: #ff4500;
+        margin-bottom: 20px;
+        z-index: 1001;
+    }
+    .kusudama {
+        font-size: 120px;
+        animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        z-index: 1001;
+    }
+    @keyframes pop {
+        0% { transform: scale(0); }
+        100% { transform: scale(1); }
+    }
+    .confetti {
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        background-color: #f00;
+        top: -20px;
+        animation: fall linear forwards;
+    }
+    @keyframes fall {
+        to { transform: translateY(100vh) rotate(720deg); }
+    }
+</style>
+</head>
+<body>
+
+    <audio id="sound-correct" src="correct.mp3" preload="auto"></audio>
+    <audio id="sound-congrats" src="congratulations.mp3" preload="auto"></audio>
+
+    <div id="top-half">
+        <h1>かたち</h1>
+        <div id="reward-area"></div>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" id="target-circle" class="target-shape active" viewBox="0 0 180 180" data-shape="circle">
+            <circle cx="90" cy="90" r="85" fill="#ffffff" />
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" id="target-triangle" class="target-shape" viewBox="0 0 180 180" data-shape="triangle">
+            <polygon points="90,5 175,170 5,170" fill="#ffffff" stroke-linejoin="round"/>
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" id="target-square" class="target-shape" viewBox="0 0 180 180" data-shape="square">
+            <rect x="5" y="5" width="170" height="170" fill="#ffffff" stroke-linejoin="round"/>
+        </svg>
+    </div>
+
+    <div id="bottom-half">
+        <svg xmlns="http://www.w3.org/2000/svg" class="draggable-shape" viewBox="0 0 180 180" data-shape="circle">
+            <circle cx="90" cy="90" r="85" fill="#000000"/>
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" class="draggable-shape" viewBox="0 0 180 180" data-shape="triangle">
+            <polygon points="90,5 175,170 5,170" fill="#000000" stroke-linejoin="round"/>
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" class="draggable-shape" viewBox="0 0 180 180" data-shape="square">
+            <rect x="5" y="5" width="170" height="170" fill="#000000" stroke-linejoin="round"/>
+        </svg>
+    </div>
+
+    <div id="clear-screen">
+        <h2>やったね！</h2>
+        <div class="kusudama">🎊</div>
+    </div>
+
+<script>
+// 【修正】DOM読み込み待ちをなくし、直接プログラムを実行する
+const questions = ['circle', 'triangle', 'square', 'circle', 'square'];
+let currentQuestionIndex = 0;
+
+const targets = document.querySelectorAll('.target-shape');
+const draggables = document.querySelectorAll('.draggable-shape');
+const rewardArea = document.getElementById('reward-area');
+
+const soundCorrect = document.getElementById('sound-correct');
+const soundCongrats = document.getElementById('sound-congrats');
+
+function loadQuestion() {
+    if (currentQuestionIndex >= questions.length) {
+        showClearScreen();
+        return;
+    }
+    
+    const activeShape = questions[currentQuestionIndex];
+    targets.forEach(target => {
+        target.classList.remove('active');
+        if (target.dataset.shape === activeShape) {
+            target.classList.add('active');
+        }
+    });
+    
+    draggables.forEach(shape => {
+        shape.style.transition = 'transform 0.2s ease-out';
+        shape.style.transform = 'translate(0px, 0px)';
+        shape.dataset.x = 0;
+        shape.dataset.y = 0;
+        shape.style.pointerEvents = 'auto'; 
+    });
+}
+
+function showClearScreen() {
+    const clearScreen = document.getElementById('clear-screen');
+    clearScreen.style.display = 'flex';
+    if (soundCongrats) {
+        soundCongrats.currentTime = 0;
+        soundCongrats.play().catch(e => console.log("音の再生エラー:", e));
+    }
+
+    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+    for (let i = 0; i < 100; i++) {
+        const confetti = document.createElement('div');
+        confetti.classList.add('confetti');
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+        confetti.style.animationDelay = (Math.random() * 0.5) + 's';
+        clearScreen.appendChild(confetti);
+    }
+}
+
+// 【修正】iPad・PC両方で確実に動くようにタッチとマウスのイベントを統合
+draggables.forEach(shape => {
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initialX = 0, initialY = 0;
+
+    function onStart(x, y) {
+        isDragging = true;
+        shape.classList.add('dragging');
+        startX = x;
+        startY = y;
+        initialX = parseFloat(shape.dataset.x || 0);
+        initialY = parseFloat(shape.dataset.y || 0);
+    }
+
+    function onMove(x, y) {
+        if (!isDragging) return;
+        const dx = x - startX;
+        const dy = y - startY;
+        const newX = initialX + dx;
+        const newY = initialY + dy;
+        shape.style.transform = `translate(${newX}px, ${newY}px)`;
+        shape.dataset.x = newX;
+        shape.dataset.y = newY;
+    }
+
+    function onEnd(x, y) {
+        if (!isDragging) return;
+        isDragging = false;
+        shape.classList.remove('dragging');
+
+        const activeTarget = document.querySelector('.target-shape.active');
+        if (!activeTarget) {
+            resetPosition();
+            return;
+        }
+
+        const targetRect = activeTarget.getBoundingClientRect();
+        const shapeRect = shape.getBoundingClientRect();
+
+        const shapeCenterX = shapeRect.left + shapeRect.width / 2;
+        const shapeCenterY = shapeRect.top + shapeRect.height / 2;
+        const targetCenterX = targetRect.left + targetRect.width / 2;
+        const targetCenterY = targetRect.top + targetRect.height / 2;
+
+        const distance = Math.hypot(shapeCenterX - targetCenterX, shapeCenterY - targetCenterY);
+        const isOverlap = distance < 80; 
+        const isCorrectShape = shape.dataset.shape === questions[currentQuestionIndex];
+
+        if (isOverlap && isCorrectShape) {
+            // 正解！
+            if (soundCorrect) {
+                soundCorrect.currentTime = 0;
+                soundCorrect.play().catch(e => console.log("音の再生エラー:", e));
+            }
+            
+            // ピタッとはめる
+            const snapX = initialX + (x - startX) + (targetRect.left - shapeRect.left);
+            const snapY = initialY + (y - startY) + (targetRect.top - shapeRect.top);
+            shape.style.transition = 'transform 0.1s ease-out';
+            shape.style.transform = `translate(${snapX}px, ${snapY}px)`;
+            shape.dataset.x = snapX;
+            shape.dataset.y = snapY;
+            
+            shape.style.pointerEvents = 'none'; // 動かなくする
+
+            // 妖精追加
+            const reward = document.createElement('div');
+            reward.className = 'reward-icon';
+            rewardArea.appendChild(reward);
+
+            currentQuestionIndex++;
+            setTimeout(loadQuestion, 1200); 
+        } else {
+            resetPosition();
+        }
+    }
+
+    function resetPosition() {
+        shape.style.transition = 'transform 0.2s ease-out';
+        shape.style.transform = 'translate(0px, 0px)';
+        shape.dataset.x = 0;
+        shape.dataset.y = 0;
+    }
+
+    // タッチ操作（iPad等用）※ preventDefault で画面スクロールを完全に防ぐ
+    shape.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        onStart(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+
+    shape.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+
+    shape.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        onEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    }, { passive: false });
+
+    // マウス操作（PC用）
+    shape.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        onStart(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging) onMove(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        if (isDragging) onEnd(e.clientX, e.clientY);
+    });
+});
+
+// 問題のセットアップを直接実行
+loadQuestion();
+</script>
+</body>
+</html>
